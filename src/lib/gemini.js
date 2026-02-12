@@ -90,7 +90,11 @@ export async function sendMessage(userMessage, history = [], options = {}) {
       return text;
     } catch (err) {
       lastError = err;
-      const isRetryable = isQuotaError(err) || /timeout|unavailable|internal|503|500/i.test(String(err?.message ?? ''));
+      // Don't retry on 429 / quota — retrying won't help, just fail fast
+      if (isQuotaError(err)) {
+        throw new Error('API rate limit or quota exceeded. Try again in a few minutes.');
+      }
+      const isRetryable = /timeout|unavailable|internal|503|500/i.test(String(err?.message ?? ''));
       if (isRetryable && attempt < maxRetries) {
         const delay = getRetryDelayFromError(err) ?? (attempt === 0 ? 2000 : 10000);
         await sleep(delay);

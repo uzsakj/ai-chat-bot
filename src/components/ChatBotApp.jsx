@@ -72,7 +72,7 @@ const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNe
             const responseMessage = createMessage('response', responseText);
             onNewChat([userMessage, responseMessage]);
         } catch (err) {
-            setError(err.message ?? 'Failed to get response from AI');
+            setError(err?.message ?? err?.error?.message ?? 'Failed to get response from AI');
             onNewChat([userMessage]);
         } finally {
             setIsLoading(false);
@@ -90,7 +90,7 @@ const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNe
             const finalMessages = [...messagesWithUser, responseMessage];
             updateChatAndPersist(activeChat, finalMessages);
         } catch (err) {
-            setError(err.message ?? 'Failed to get response from AI');
+            setError(err?.message ?? err?.error?.message ?? 'Failed to get response from AI');
         } finally {
             setIsLoading(false);
         }
