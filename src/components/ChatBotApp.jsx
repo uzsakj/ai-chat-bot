@@ -49,67 +49,65 @@ const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNe
         }
     }
 
+    const createMessage = (type, text) => ({
+        type,
+        text,
+        timestamp: new Date().toLocaleTimeString(),
+    });
+
+    const updateChatAndPersist = (chatId, messages) => {
+        setChats(prev => {
+            const updated = prev.map(c => c.id === chatId ? { ...c, messages } : c);
+            localStorage.setItem(chatId, JSON.stringify({ messages }));
+            localStorage.setItem('chats', JSON.stringify(updated));
+            return updated;
+        });
+    };
+
+    const sendNewChat = async (userMessage) => {
+        setIsLoading(true);
+        try {
+            const responseText = await sendToGemini(userMessage.text, []);
+            const responseMessage = createMessage('response', responseText);
+            onNewChat([userMessage, responseMessage]);
+        } catch (err) {
+            setError(err.message ?? 'Failed to get response from AI');
+            onNewChat([userMessage]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const sendExistingChat = async (userMessage) => {
+        const messagesWithUser = [...messages, userMessage];
+        updateChatAndPersist(activeChat, messagesWithUser);
+        setIsLoading(true);
+
+        try {
+            const responseText = await sendToGemini(userMessage.text, messages);
+            const responseMessage = createMessage('response', responseText);
+            const finalMessages = [...messagesWithUser, responseMessage];
+            updateChatAndPersist(activeChat, finalMessages);
+        } catch (err) {
+            setError(err.message ?? 'Failed to get response from AI');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const sendMessage = async () => {
         if (inputValue.trim() === '' || isLoading) return;
 
-        const userMessage = {
-            type: 'prompt',
-            text: inputValue,
-            timestamp: new Date().toLocaleTimeString(),
-        };
+        const userMessage = createMessage('prompt', inputValue);
         setInputValue('');
         setError(null);
 
         if (!activeChat) {
-            setIsLoading(true);
-            try {
-                const responseText = await sendToGemini(userMessage.text, []);
-                const responseMessage = {
-                    type: 'response',
-                    text: responseText,
-                    timestamp: new Date().toLocaleTimeString(),
-                };
-                onNewChat([userMessage, responseMessage]);
-            } catch (err) {
-                setError(err.message ?? 'Failed to get response from AI');
-                onNewChat([userMessage]);
-            } finally {
-                setIsLoading(false);
-            }
+            await sendNewChat(userMessage);
         } else {
-            const updatedMessages = [...messages, userMessage];
-            localStorage.setItem(activeChat, JSON.stringify({ updatedMessages }));
-
-            const updatedChats = chats.map((chat) =>
-                chat.id === activeChat ? { ...chat, messages: updatedMessages } : chat
-            );
-
-            setChats(updatedChats);
-            localStorage.setItem('chats', JSON.stringify(updatedChats));
-            setIsLoading(true);
-
-            try {
-                const responseText = await sendToGemini(userMessage.text, messages);
-                const responseMessage = {
-                    type: 'response',
-                    text: responseText,
-                    timestamp: new Date().toLocaleTimeString(),
-                };
-                const finalMessages = [...updatedMessages, responseMessage];
-                setChats((prev) =>
-                    prev.map((chat) =>
-                        chat.id === activeChat ? { ...chat, messages: finalMessages } : chat
-                    )
-                );
-                localStorage.setItem(activeChat, JSON.stringify({ messages: finalMessages }));
-                localStorage.setItem('chats', JSON.stringify(updatedChats));
-            } catch (err) {
-                setError(err.message ?? 'Failed to get response from AI');
-            } finally {
-                setIsLoading(false);
-            }
+            await sendExistingChat(userMessage);
         }
-    }
+    };
 
     const handleSelectChat = (chatId) => {
         setActiveChat(chatId);
