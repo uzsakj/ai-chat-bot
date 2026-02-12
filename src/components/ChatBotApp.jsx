@@ -2,11 +2,15 @@ import React from 'react'
 import './ChatBotApp.css'
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { sendMessage as sendToGemini } from '../lib/gemini';
+import Picker from '@emoji-mart/react';
+import data from '@emoji-mart/data';
 
 const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNewChat }) => {
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
     const chatEndRef = useRef(null);
     const activeChatObj = chats.find((chat) => chat.id === activeChat);
     const messages = useMemo(
@@ -18,6 +22,11 @@ const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNe
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    const handleEmojiSelect = (emoji) => {
+        setInputValue(prevInputValue => prevInputValue + emoji.native);
+        setShowEmojiPicker(false);
+    }
 
     const handleInputChange = (e) => {
         setInputValue(e.target.value);
@@ -141,13 +150,19 @@ const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNe
                     className='msg-form'
                     onSubmit={(e) => e.preventDefault()}
                     onKeyDown={handleKeyDown}>
-                    <i className="fa-solid fa-face-smile emoji"></i>
+                    <i className="fa-solid fa-face-smile emoji" onClick={() => setShowEmojiPicker((prev) => !prev)}></i>
+                    {showEmojiPicker && (
+                        <div className="picker">
+                            <Picker onEmojiSelect={handleEmojiSelect} data={data} />
+                        </div>
+                    )}
                     <input
                         type="text"
                         className='msg-input'
                         placeholder='Type a message...'
                         value={inputValue}
                         onChange={handleInputChange}
+                        onFocus={() => setShowEmojiPicker(false)}
                     />
                     <i className="fa-solid fa-paper-plane" onClick={sendMessage}></i>
                 </form>
