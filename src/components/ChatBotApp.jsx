@@ -2,9 +2,11 @@ import React from 'react'
 import './ChatBotApp.css'
 import { useState } from 'react';
 
-const ChatBotApp = ({ onGoBack, chats, setChats }) => {
+
+const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNewChat }) => {
     const [inputValue, setInputValue] = useState('');
-    const [messages, setMessages] = useState(chats[0]?.messages || []);
+    const activeChatObj = chats.find((chat) => chat.id === activeChat);
+    const messages = activeChatObj?.messages ?? [];
 
     const handleInputChange = (e) => {
         setInputValue(e.target.value);
@@ -24,18 +26,31 @@ const ChatBotApp = ({ onGoBack, chats, setChats }) => {
             timestamp: new Date().toLocaleTimeString(),
         };
 
-        const updatedMessages = [...messages, newMessage];
-        setMessages(updatedMessages);
-        setInputValue('');
+        if (!activeChat) {
+            onNewChat(newMessage);
+            setInputValue('');
+        } else {
+            const updatedMessages = [...messages, newMessage];
+            setInputValue('');
 
-        const updatedChats = chats.map((chat, index) => {
-            if (index === 0) {
-                return { ...chat, messages: updatedMessages };
-            }
-            return chat;
-        })
+            const updatedChats = chats.map((chat) =>
+                chat.id === activeChat ? { ...chat, messages: updatedMessages } : chat
+            );
+            setChats(updatedChats);
+        }
+    }
 
+    const handleSelectChat = (chatId) => {
+        setActiveChat(chatId);
+    }
+
+    const handleDeleteChat = (chatId) => {
+        const updatedChats = chats.filter((chat) => chat.id !== chatId);
         setChats(updatedChats);
+        if (chatId === activeChat) {
+            const updatedActiveChat = updatedChats.length > 0 ? updatedChats[0].id : null;
+            setActiveChat(updatedActiveChat);
+        }
     }
 
     return (
@@ -43,12 +58,20 @@ const ChatBotApp = ({ onGoBack, chats, setChats }) => {
             <div className="chat-list">
                 <div className="chat-list-header">
                     <h1>Chat List</h1>
-                    <i className="bx bx-edit-alt new-chat"></i>
+                    <i className="bx bx-edit-alt new-chat" onClick={() => onNewChat()}></i>
                 </div>
-                {chats.map((chat, index) => (
-                    <div className={`chat-list-item ${index === 0 ? 'active' : ''}`} key={index}>
-                        <h4>{chat.id}</h4>
-                        <i className="bx bx-x-circle"></i>
+                {chats.map((chat) => (
+                    <div
+                        className={`chat-list-item ${chat.id === activeChat ? 'active' : ''}`}
+                        key={chat.id}
+                        onClick={() => handleSelectChat(chat.id)}>
+                        <h4>{chat.displayId}</h4>
+                        <i
+                            className="bx bx-x-circle"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteChat(chat.id);
+                            }}></i>
                     </div>
                 ))}
             </div>
