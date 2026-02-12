@@ -18,6 +18,16 @@ const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNe
         [activeChatObj?.messages]
     );
 
+    useEffect(() => {
+        if (!activeChat) return;
+        const stored = JSON.parse(localStorage.getItem(activeChat));
+        const storedMessages = stored?.messages ?? [];
+        if (storedMessages.length > 0) {
+            setChats(prev => prev.map(chat =>
+                chat.id === activeChat ? { ...chat, messages: storedMessages } : chat
+            ));
+        }
+    }, [activeChat, setChats]);
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -68,10 +78,14 @@ const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNe
             }
         } else {
             const updatedMessages = [...messages, userMessage];
+            localStorage.setItem(activeChat, JSON.stringify({ updatedMessages }));
+
             const updatedChats = chats.map((chat) =>
                 chat.id === activeChat ? { ...chat, messages: updatedMessages } : chat
             );
+
             setChats(updatedChats);
+            localStorage.setItem('chats', JSON.stringify(updatedChats));
             setIsLoading(true);
 
             try {
@@ -87,6 +101,8 @@ const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNe
                         chat.id === activeChat ? { ...chat, messages: finalMessages } : chat
                     )
                 );
+                localStorage.setItem(activeChat, JSON.stringify({ messages: finalMessages }));
+                localStorage.setItem('chats', JSON.stringify(updatedChats));
             } catch (err) {
                 setError(err.message ?? 'Failed to get response from AI');
             } finally {
@@ -102,6 +118,9 @@ const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNe
     const handleDeleteChat = (chatId) => {
         const updatedChats = chats.filter((chat) => chat.id !== chatId);
         setChats(updatedChats);
+        localStorage.setItem('chats', JSON.stringify(updatedChats));
+        localStorage.removeItem(chatId);
+
         if (chatId === activeChat) {
             const updatedActiveChat = updatedChats.length > 0 ? updatedChats[0].id : null;
             setActiveChat(updatedActiveChat);
@@ -142,10 +161,11 @@ const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNe
                             <span>{message.timestamp}</span>
                         </div>
                     ))}
+                    {isLoading && <div className="typing">Typing...</div>}
+                    {error && <div className="chat-error">{error}</div>}
                     <div ref={chatEndRef}></div>
                 </div>
-                {isLoading && <div className="typing">Typing...</div>}
-                {error && <div className="chat-error">{error}</div>}
+
                 <form
                     className='msg-form'
                     onSubmit={(e) => e.preventDefault()}
