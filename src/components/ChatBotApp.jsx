@@ -1,15 +1,27 @@
 import React from 'react'
 import './ChatBotApp.css'
-import { useState } from 'react';
-
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { sendMessage as sendToGemini } from '../lib/gemini';
 
 const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNewChat }) => {
     const [inputValue, setInputValue] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const chatEndRef = useRef(null);
     const activeChatObj = chats.find((chat) => chat.id === activeChat);
-    const messages = activeChatObj?.messages ?? [];
+    const messages = useMemo(
+        () => activeChatObj?.messages ?? [],
+        [activeChatObj?.messages]
+    );
+
+
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
 
     const handleInputChange = (e) => {
         setInputValue(e.target.value);
+        setError(null);
     }
 
     const handleKeyDown = (e) => {
@@ -18,25 +30,59 @@ const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNe
         }
     }
 
-    const sendMessage = () => {
-        if (inputValue.trim() === '') return;
-        const newMessage = {
+    const sendMessage = async () => {
+        if (inputValue.trim() === '' || isLoading) return;
+
+        const userMessage = {
             type: 'prompt',
             text: inputValue,
             timestamp: new Date().toLocaleTimeString(),
         };
+        setInputValue('');
+        setError(null);
 
         if (!activeChat) {
-            onNewChat(newMessage);
-            setInputValue('');
+            setIsLoading(true);
+            try {
+                const responseText = await sendToGemini(userMessage.text, []);
+                const responseMessage = {
+                    type: 'response',
+                    text: responseText,
+                    timestamp: new Date().toLocaleTimeString(),
+                };
+                onNewChat([userMessage, responseMessage]);
+            } catch (err) {
+                setError(err.message ?? 'Failed to get response from AI');
+                onNewChat([userMessage]);
+            } finally {
+                setIsLoading(false);
+            }
         } else {
-            const updatedMessages = [...messages, newMessage];
-            setInputValue('');
-
+            const updatedMessages = [...messages, userMessage];
             const updatedChats = chats.map((chat) =>
                 chat.id === activeChat ? { ...chat, messages: updatedMessages } : chat
             );
             setChats(updatedChats);
+            setIsLoading(true);
+
+            try {
+                const responseText = await sendToGemini(userMessage.text, messages);
+                const responseMessage = {
+                    type: 'response',
+                    text: responseText,
+                    timestamp: new Date().toLocaleTimeString(),
+                };
+                const finalMessages = [...updatedMessages, responseMessage];
+                setChats((prev) =>
+                    prev.map((chat) =>
+                        chat.id === activeChat ? { ...chat, messages: finalMessages } : chat
+                    )
+                );
+            } catch (err) {
+                setError(err.message ?? 'Failed to get response from AI');
+            } finally {
+                setIsLoading(false);
+            }
         }
     }
 
@@ -87,8 +133,10 @@ const ChatBotApp = ({ onGoBack, chats, setChats, activeChat, setActiveChat, onNe
                             <span>{message.timestamp}</span>
                         </div>
                     ))}
+                    <div ref={chatEndRef}></div>
                 </div>
-                <div className="typing">Typing...</div>
+                {isLoading && <div className="typing">Typing...</div>}
+                {error && <div className="chat-error">{error}</div>}
                 <form
                     className='msg-form'
                     onSubmit={(e) => e.preventDefault()}

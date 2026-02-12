@@ -8,10 +8,12 @@ const App = () => {
   const [chats, setChats] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
 
-  const createNewChat = (initialMessage) => {
-    const messages = (initialMessage && initialMessage.text !== undefined)
-      ? [initialMessage]
-      : [];
+  const createNewChat = (initialMessageOrMessages) => {
+    const messages = Array.isArray(initialMessageOrMessages)
+      ? initialMessageOrMessages
+      : (initialMessageOrMessages && initialMessageOrMessages.text !== undefined)
+        ? [initialMessageOrMessages]
+        : [];
     const newChat = {
       id: uuidv4(),
       displayId: `Chat ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString()}`,
